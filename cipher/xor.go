@@ -5,15 +5,14 @@ import (
 )
 
 // note: this works exactly the same way forwards as it does backwards
-func XOREncrypt(msg []byte, key string) ([]byte, error) {
-	keyBytes := []byte(key)
+func XOREncrypt(msg []byte, key []byte) ([]byte, error) {
 
-	if len(keyBytes) < 1 {
+	if len(key) < 1 {
 		return nil, fmt.Errorf("key length must be greater than 0")
 	}
 
 	for i, c := range msg {
-		msg[i] = c ^ keyBytes[i%len(keyBytes)]
+		msg[i] = c ^ key[i%len(key)]
 	}
 
 	return msg, nil

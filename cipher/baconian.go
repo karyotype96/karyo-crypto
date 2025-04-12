@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func BaconianEncrypt(msg string) string {
+func BaconianEncrypt(msg []byte) []byte {
 	baconMap := make(map[byte]string)
 
 	for i, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
@@ -34,7 +34,7 @@ func BaconianEncrypt(msg string) string {
 
 	resultArray := make([]string, len(msg))
 
-	for i, b := range []byte(msg) {
+	for i, b := range msg {
 		key := b
 		if key >= 'A' && key <= 'Z' {
 			key += 32
@@ -46,10 +46,10 @@ func BaconianEncrypt(msg string) string {
 		}
 	}
 
-	return strings.Join(resultArray, " ")
+	return []byte(strings.Join(resultArray, " "))
 }
 
-func BaconianDecrypt(msg string) (string, error) {
+func BaconianDecrypt(msg string) ([]byte, error) {
 	baconMap := make(map[string]byte)
 
 	for i, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
@@ -85,9 +85,9 @@ func BaconianDecrypt(msg string) (string, error) {
 		if ok {
 			resultMsg[i] = v
 		} else {
-			return "", fmt.Errorf("invalid message string")
+			return nil, fmt.Errorf("invalid message string")
 		}
 	}
 
-	return string(resultMsg), nil
+	return resultMsg, nil
 }
