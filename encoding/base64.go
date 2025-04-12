@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const charMap = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+const CHAR_MAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 func Base64Encode(message []byte) ([]byte, error) {
 	if len(message) < 1 {
@@ -43,7 +43,7 @@ func Base64Encode(message []byte) ([]byte, error) {
 			continue
 		}
 
-		baseBuffer[encodeIndex] = byte(charMap[int(baseBuffer[encodeIndex])])
+		baseBuffer[encodeIndex] = byte(CHAR_MAP[int(baseBuffer[encodeIndex])])
 	}
 
 	return baseBuffer, nil
@@ -62,7 +62,7 @@ func Base64Decode(encoded []byte) ([]byte, error) {
 			if encoded[byteIndex+i] == byte('=') {
 				decodeBuffer[i] = 0
 			} else {
-				decodeBuffer[i] = byte(strings.Index(charMap, string(encoded[byteIndex+i])))
+				decodeBuffer[i] = byte(strings.Index(CHAR_MAP, string(encoded[byteIndex+i])))
 			}
 		}
 
