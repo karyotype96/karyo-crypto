@@ -22,14 +22,14 @@ func Base64Encode(message []byte) ([]byte, error) {
 		byteBuffer[3] = byte('=')
 
 		if byteIndex+1 >= len(message) {
-			baseBuffer = append(baseBuffer, byteBuffer[0:4]...)
+			baseBuffer = append(baseBuffer, byteBuffer[0:2]...)
 			break
 		}
 
 		byteBuffer[1] |= ((0b11110000 & message[byteIndex+1]) >> 4) & 0b00001111
 		byteBuffer[2] = ((0b00001111 & message[byteIndex+1]) << 2) & 0b00111100
 		if byteIndex+2 >= len(message) {
-			baseBuffer = append(baseBuffer, byteBuffer[0:4]...)
+			baseBuffer = append(baseBuffer, byteBuffer[0:3]...)
 			break
 		}
 
@@ -39,11 +39,15 @@ func Base64Encode(message []byte) ([]byte, error) {
 	}
 
 	for encodeIndex, _ := range baseBuffer {
-		if baseBuffer[encodeIndex] == '=' {
-			continue
+		baseBuffer[encodeIndex] = byte(CHAR_MAP[int(baseBuffer[encodeIndex])])
+	}
+
+	for {
+		if len(baseBuffer)%4 == 0 {
+			break
 		}
 
-		baseBuffer[encodeIndex] = byte(CHAR_MAP[int(baseBuffer[encodeIndex])])
+		baseBuffer = append(baseBuffer, '=')
 	}
 
 	return baseBuffer, nil
