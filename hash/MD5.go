@@ -1,6 +1,11 @@
 package hash
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"math/bits"
+)
 
 type MD_Buffer struct {
 	A uint32
@@ -34,7 +39,7 @@ var K = [64]uint32{
 	0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
 }
 
-var s = [64]uint32{
+var s = [64]int{
 	7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
 	5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
 	4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
@@ -53,6 +58,9 @@ func H(B uint32, C uint32, D uint32) uint32 {
 func I(B uint32, C uint32, D uint32) uint32 {
 	return C ^ (B | ^D)
 }
+func RotateLeft(x uint32, n int) uint32 {
+	return bits.RotateLeft32(x, n)
+}
 
 // MD Buffer-specific functions and methods
 func CreateMDBuffer() MD_Buffer {
@@ -68,35 +76,7 @@ func (m *MD_Buffer) ResetBuffer() {
 
 // MD5-specific functions and methods
 
-// private functions/methods
-func (m *MD5) getPaddedMessage() []byte {
-	paddedMsg := make([]byte, 0)
-	paddedMsg = append(paddedMsg, m.message...)
-	paddedMsg = append(paddedMsg, 0x80)
-
-	msgLength := uint64(len(m.message))
-	modLength := len(paddedMsg) % 64
-	if modLength > 56 {
-		zeros := make([]byte, 64-modLength)
-		paddedMsg = append(paddedMsg, zeros...)
-		modLength = 0
-	}
-
-	zeros := make([]byte, 56-modLength)
-	paddedMsg = append(paddedMsg, zeros...)
-
-	endPadLength := make([]byte, 8)
-
-	for byteIndex := 0; byteIndex < 8; byteIndex++ {
-		endPadLength[byteIndex] = byte((msgLength >> (8 * (7 - byteIndex))) & 0xFF)
-	}
-
-	paddedMsg = append(paddedMsg, endPadLength...)
-
-	return paddedMsg
-}
-
-// public functions/methods
+/* public functions/methods */
 func CreateMD5() MD5 {
 	return MD5{
 		message: make([]byte, 0),
@@ -108,11 +88,60 @@ func (m *MD5) Write(toAdd []byte) {
 	m.message = append(m.message, toAdd...)
 }
 
+func (m *MD5) Clear() {
+	m.message = make([]byte, 0)
+}
+
 func (m *MD5) Digest() []byte {
 	m.buf.ResetBuffer()
 
-	paddedMsg := m.getPaddedMessage()
-	fmt.Printf("full padded msg: %x, total length: %d\n", paddedMsg, len(paddedMsg))
+	paddedMsg := bytes.NewBuffer([]byte(m.message))
+	paddedMsg.WriteByte(0x80)
+	for paddedMsg.Len()%64 != 56 {
+		paddedMsg.WriteByte(0x00)
+	}
+	length := uint64(len(s)) * 8
+	binary.Write(paddedMsg, binary.LittleEndian, length)
+	// fmt.Printf("full padded msg: %x, total length: %d\n", paddedMsg, len(paddedMsg))
 
-	return nil
+	var buffer [16]uint32
+	for binary.Read(paddedMsg, binary.LittleEndian, buffer[:]) == nil {
+		AA := m.buf.A
+		BB := m.buf.B
+		CC := m.buf.C
+		DD := m.buf.D
+
+		for i := 0; i < 64; i++ {
+			var f, g uint32
+			if i >= 0 && i < 16 {
+				f = F(BB, CC, DD)
+				g = uint32(i)
+			} else if i >= 16 && i < 32 {
+				f = G(BB, CC, DD)
+				g = uint32(5*i+1) % 0x0F
+			} else if i >= 32 && i < 48 {
+				f = H(BB, CC, DD)
+				g = uint32(3*i+5) & 0x0F
+			} else {
+				f = I(BB, CC, DD)
+				g = uint32(7*i) & 0x0F
+			}
+
+			AA += f + buffer[g] + K[i]
+
+			AA, DD, CC, BB = DD, CC, BB, AA+RotateLeft(AA, s[i])
+		}
+
+		m.buf.A += AA
+		m.buf.B += BB
+		m.buf.C += CC
+		m.buf.D += DD
+	}
+
+	result := make([]byte, 16)
+	binary.Write(bytes.NewBuffer(result[:0]), binary.LittleEndian, []uint32{m.buf.A, m.buf.B, m.buf.C, m.buf.D})
+
+	fmt.Printf("%x\n", result)
+
+	return result
 }
