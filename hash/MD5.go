@@ -6,19 +6,10 @@ import (
 	"math/bits"
 )
 
-type MD_Buffer struct {
-	A uint32
-	B uint32
-	C uint32
-	D uint32
-}
-
 type MD5 struct {
 	message []byte
-	buf     MD_Buffer
 }
 
-// auxiliary functions and constants
 var K = [64]uint32{
 	0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
 	0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
@@ -38,7 +29,12 @@ var K = [64]uint32{
 	0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
 }
 
-var s = [...]int{7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21}
+var s = []int{
+	7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+	5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+	4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+	6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+}
 
 func F(B uint32, C uint32, D uint32) uint32 {
 	return (B & C) | (^B & D)
@@ -53,25 +49,9 @@ func I(B uint32, C uint32, D uint32) uint32 {
 	return C ^ (B | ^D)
 }
 
-// MD Buffer-specific functions and methods
-func CreateMDBuffer() MD_Buffer {
-	return MD_Buffer{A: 0x67452301, B: 0xEFCDAB89, C: 0x98BADCFE, D: 0x10325476}
-}
-
-func (m *MD_Buffer) ResetBuffer() {
-	m.A = 0x67452301
-	m.B = 0xEFCDAB89
-	m.C = 0x98BADCFE
-	m.D = 0x10325476
-}
-
-// MD5-specific functions and methods
-
-/* public functions/methods */
 func CreateMD5() MD5 {
 	return MD5{
 		message: make([]byte, 0),
-		buf:     CreateMDBuffer(),
 	}
 }
 
@@ -84,56 +64,61 @@ func (m *MD5) Clear() {
 }
 
 func (m *MD5) Digest() []byte {
-	m.buf.ResetBuffer()
-
 	paddedMsg := bytes.NewBuffer([]byte(m.message))
 	paddedMsg.WriteByte(0x80)
 	for paddedMsg.Len()%64 != 56 {
-		paddedMsg.WriteByte(0x00)
+		paddedMsg.WriteByte(0)
 	}
-	length := uint64(len(s)) * 8
-	binary.Write(paddedMsg, binary.LittleEndian, length)
-	// fmt.Printf("full padded msg: %x, total length: %d\n", paddedMsg, len(paddedMsg))
 
-	var buffer [16]uint32
-	for binary.Read(paddedMsg, binary.LittleEndian, buffer[:]) == nil {
-		AA := m.buf.A
-		BB := m.buf.B
-		CC := m.buf.C
-		DD := m.buf.D
+	length := uint64(len(m.message)) * 8
+
+	binary.Write(paddedMsg, binary.NativeEndian, length)
+
+	var A uint32 = 0x67452301
+	var B uint32 = 0xEFCDAB89
+	var C uint32 = 0x98BADCFE
+	var D uint32 = 0x10325476
+	for blockNum := 0; blockNum < paddedMsg.Len(); blockNum += 64 {
+		AA := A
+		BB := B
+		CC := C
+		DD := D
+
+		block := make([]byte, 64)
+		copy(block, paddedMsg.Bytes()[blockNum:blockNum+64])
+
+		M := make([]uint32, 16)
+		for i := 0; i < len(block); i += 4 {
+			M[i/4] = binary.NativeEndian.Uint32(block[i : i+4])
+		}
 
 		for i := 0; i < 64; i++ {
 			var f uint32
 			bufferIndex := i
-			round := i >> 4
 			if i >= 0 && i < 16 {
 				f = F(BB, CC, DD)
 			} else if i >= 16 && i < 32 {
 				f = G(BB, CC, DD)
-				bufferIndex = (bufferIndex*5 + 1) & 0x0F
+				bufferIndex = (bufferIndex*5 + 1) % 16
 			} else if i >= 32 && i < 48 {
 				f = H(BB, CC, DD)
-				bufferIndex = (bufferIndex*3 + 5) & 0x0F
+				bufferIndex = (bufferIndex*3 + 5) % 16
 			} else if i >= 48 && i < 64 {
 				f = I(BB, CC, DD)
-				bufferIndex = (bufferIndex * 7) & 0x0F
+				bufferIndex = (bufferIndex * 7) % 16
 			}
 
-			shiftCount := s[(round<<2)|(i&3)]
+			shiftCount := s[i]
 
-			AA += f + buffer[bufferIndex] + K[i]
-
+			AA += f + M[bufferIndex] + K[i]
 			AA, DD, CC, BB = DD, CC, BB, bits.RotateLeft32(AA, shiftCount)+BB
 		}
 
-		m.buf.A += AA
-		m.buf.B += BB
-		m.buf.C += CC
-		m.buf.D += DD
+		A, B, C, D = A+AA, B+BB, C+CC, D+DD
 	}
 
 	result := make([]byte, 16)
-	binary.Write(bytes.NewBuffer(result[:0]), binary.LittleEndian, []uint32{m.buf.A, m.buf.B, m.buf.C, m.buf.D})
+	binary.Write(bytes.NewBuffer(result[:0]), binary.NativeEndian, []uint32{A, B, C, D})
 
 	return result
 }
