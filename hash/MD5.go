@@ -39,12 +39,7 @@ var K = [64]uint32{
 	0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
 }
 
-var s = [64]int{
-	7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-	5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
-	4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-	6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
-}
+var s = [...]int{7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21}
 
 func F(B uint32, C uint32, D uint32) uint32 {
 	return (B & C) | (^B & D)
@@ -57,9 +52,6 @@ func H(B uint32, C uint32, D uint32) uint32 {
 }
 func I(B uint32, C uint32, D uint32) uint32 {
 	return C ^ (B | ^D)
-}
-func RotateLeft(x uint32, n int) uint32 {
-	return bits.RotateLeft32(x, n)
 }
 
 // MD Buffer-specific functions and methods
@@ -112,24 +104,27 @@ func (m *MD5) Digest() []byte {
 		DD := m.buf.D
 
 		for i := 0; i < 64; i++ {
-			var f, g uint32
+			var f uint32
+			bufferIndex := i
+			round := i >> 4
 			if i >= 0 && i < 16 {
 				f = F(BB, CC, DD)
-				g = uint32(i)
 			} else if i >= 16 && i < 32 {
 				f = G(BB, CC, DD)
-				g = uint32(5*i+1) % 0x0F
+				bufferIndex = (bufferIndex*5 + 1) & 0x0F
 			} else if i >= 32 && i < 48 {
 				f = H(BB, CC, DD)
-				g = uint32(3*i+5) & 0x0F
-			} else {
+				bufferIndex = (bufferIndex*3 + 5) & 0x0F
+			} else if i >= 48 && i < 64 {
 				f = I(BB, CC, DD)
-				g = uint32(7*i) & 0x0F
+				bufferIndex = (bufferIndex * 7) & 0x0F
 			}
 
-			AA += f + buffer[g] + K[i]
+			shiftCount := s[(round<<2)|(i&3)]
 
-			AA, DD, CC, BB = DD, CC, BB, AA+RotateLeft(AA, s[i])
+			AA += f + buffer[bufferIndex] + K[i]
+
+			AA, DD, CC, BB = DD, CC, BB, bits.RotateLeft32(AA, shiftCount)+BB
 		}
 
 		m.buf.A += AA
