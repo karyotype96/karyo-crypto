@@ -3,7 +3,6 @@ package hash
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/bits"
 )
 
@@ -135,8 +134,6 @@ func (m *MD5) Digest() []byte {
 
 	result := make([]byte, 16)
 	binary.Write(bytes.NewBuffer(result[:0]), binary.LittleEndian, []uint32{m.buf.A, m.buf.B, m.buf.C, m.buf.D})
-
-	fmt.Printf("%x\n", result)
 
 	return result
 }

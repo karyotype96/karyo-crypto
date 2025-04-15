@@ -3,7 +3,6 @@ package hash
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/bits"
 )
 
@@ -78,22 +77,13 @@ func (m *SHA256) Digest() []byte {
 		a, b, c, d, e, f, g, h := h0, h1, h2, h3, h4, h5, h6, h7
 		for i := 0; i < 64; i++ {
 			S1 := bits.RotateLeft32(e, -6) ^ bits.RotateLeft32(e, -11) ^ bits.RotateLeft32(e, -25)
-			fmt.Printf("S1 = %032b\n", S1)
 			ch := (e & f) ^ ((^e) & g)
-			fmt.Printf("ch = %032b\n", ch)
 			temp1 := h + S1 + ch + k[i] + M[i]
 			S0 := bits.RotateLeft32(a, -2) ^ bits.RotateLeft32(a, -13) ^ bits.RotateLeft32(a, -22)
 			maj := (a & b) ^ (a & c) ^ (b & c)
 			temp2 := S0 + maj
 
-			h = g
-			g = f
-			f = e
-			e = d + temp1
-			d = c
-			c = b
-			b = a
-			a = temp1 + temp2
+			h, g, f, e, d, c, b, a = g, f, e, d+temp1, c, b, a, temp1+temp2
 		}
 
 		h0, h1, h2, h3, h4, h5, h6, h7 = h0+a, h1+b, h2+c, h3+d, h4+e, h5+f, h6+g, h7+h
@@ -103,11 +93,4 @@ func (m *SHA256) Digest() []byte {
 	binary.Write(bytes.NewBuffer(result[:0]), binary.BigEndian, []uint32{h0, h1, h2, h3, h4, h5, h6, h7})
 
 	return result
-}
-
-// debug functions
-func DebugWriteBytes(bytes []byte) {
-	for i, b := range bytes {
-		fmt.Printf("byte %02d, %08b\n", i, b)
-	}
 }
